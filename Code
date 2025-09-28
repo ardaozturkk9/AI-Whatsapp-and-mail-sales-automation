@@ -1,0 +1,941 @@
+{
+  "name": "Trend Otomasyonu",
+  "nodes": [
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"query1\": [\"query\", \"évolution\"],\n    \"query2\": [\"query\", \"évolution\"],\n    \"query3\": [\"query\", \"évolution\"]\n}"
+      },
+      "id": "6a06e472-7dcd-4c15-b112-7729f4eea2b4",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "position": [
+        2800,
+        896
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-3-7-sonnet-20250219",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 3.7"
+        },
+        "options": {}
+      },
+      "id": "60d43cb1-b5d0-49f4-9fdc-2d61d3153113",
+      "name": "Anthropic Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "position": [
+        2608,
+        896
+      ],
+      "typeVersion": 1.3,
+      "credentials": {
+        "anthropicApi": {
+          "id": "sjLIgJsSrQDY03qC",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-20250514",
+          "cachedResultName": "Claude 4 Sonnet"
+        },
+        "options": {}
+      },
+      "id": "1a5f4a68-7a8a-40f5-9448-14a86bdd0457",
+      "name": "Anthropic Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "position": [
+        4512,
+        1184
+      ],
+      "typeVersion": 1.3,
+      "credentials": {
+        "anthropicApi": {
+          "id": "sjLIgJsSrQDY03qC",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1bXOr0YSiKnWisG2d_t77kyF_Px9Oovwf6t7rwui6BJI/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "title": "={{ new Date().toLocaleDateString('tr-TR', { month: 'long' }).charAt(0).toUpperCase() + new Date().toLocaleDateString('tr-TR', { month: 'long' }).slice(1) }} {{ $('Get Query').first().json.Query }}",
+        "options": {}
+      },
+      "id": "67fe2313-f34a-4527-a409-92767fba253b",
+      "name": "Création feuille sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        3248,
+        704
+      ],
+      "typeVersion": 4.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2b6GZ4GgadWJc6K9",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputs = $input.all();\nlet out = [];\n\nfor (const it of inputs) {\n  const data = it.json || {};\n\n  // 1) Google News (engine=google_news)\n  let list = Array.isArray(data.news_results) ? data.news_results : [];\n\n  // 2) Google Arama Haberler (engine=google & tbm=nws -> news_results)\n  if (!list.length && Array.isArray(data.news_results)) {\n    list = data.news_results;\n  }\n\n  // 3) Bazı cevaplarda \"top_stories\" / \"stories\" olabilir\n  if (!list.length && Array.isArray(data.top_stories)) {\n    for (const s of data.top_stories) {\n      if (Array.isArray(s.articles)) list = list.concat(s.articles);\n    }\n  }\n  if (!list.length && Array.isArray(data.stories)) {\n    for (const s of data.stories) {\n      if (Array.isArray(s.articles)) list = list.concat(s.articles);\n    }\n  }\n\n  if (!list.length) continue;\n\n  const simplified = list.slice(0, 5).map(n => ({\n    json: {\n      url: n.link || n.url || null,\n      title: n.title || n.heading || null,\n      source: n.source || n.publisher?.name || null,\n      published_at: n.date || n.published_time || null,\n      original_query:\n        data.search_parameters?.q ||\n        $('Get Query').first()?.json?.Query ||\n        null\n    }\n  }));\n\n  out = out.concat(simplified);\n}\n\n// Hiç veri yoksa boş dönmeyelim; debug dostu mesaj verelim\nif (!out.length) {\n  return [{\n    json: {\n      _warning: 'No results found. Check If/fallback and HTTP params.',\n      available_keys: Object.keys($input.first()?.json || {})\n    }\n  }];\n}\n\nreturn out;\n"
+      },
+      "id": "ec57035b-2ad7-4d60-8c48-bba40a8bc0a6",
+      "name": "Return URL only",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        4240,
+        688
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1bXOr0YSiKnWisG2d_t77kyF_Px9Oovwf6t7rwui6BJI/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Query",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "9599e4a5-4406-4d9b-80ee-32e504e1b2b3",
+      "name": "Get Query",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1904,
+        720
+      ],
+      "typeVersion": 4.6,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2b6GZ4GgadWJc6K9",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// N8N Code Node - Create Nested Structure for Related Queries (TOP 3 ONLY)\nconst inputData = $input.all()[0].json;\n\nlet relatedQueries = [];\nlet risingQueries = [];\n\ntry {\n  // Check if the response contains related_queries data\n  if (inputData.related_queries) {\n    \n    // Extract \"top\" related queries if they exist\n    if (inputData.related_queries.top) {\n      relatedQueries = \n        inputData.related_queries.top.map((query, index) => ({\n          query: query.query,\n          value: query.value,\n          extracted_value: query.extracted_value,\n          link: query.link,\n          serpapi_link: query.serpapi_link,\n          type: 'top',\n          rank: index + 1\n        }));\n    }\n    \n    // Extract \"rising\" related queries if they exist\n    if (inputData.related_queries.rising) {\n      risingQueries = \n        inputData.related_queries.rising.map((query, index) => ({\n          query: query.query,\n          value: query.value,\n          extracted_value: query.extracted_value,\n          link: query.link,\n          serpapi_link: query.serpapi_link,\n          type: 'rising',\n          rank: index + 1\n        }));\n    }\n  }\n  \n  // Combine all queries with their types\n  const allQueries = [...relatedQueries, ...risingQueries];\n  \n  // Sort by extracted_value (descending) to get top performers\n  const sortedQueries = allQueries.sort((a, b) => {\n    const aVal = typeof a.extracted_value === 'number' ? a.extracted_value : 0;\n    const bVal = typeof b.extracted_value === 'number' ? b.extracted_value : 0;\n    return bVal - aVal;\n  });\n  \n  // Get top 3 queries ONLY - DEĞİŞİKLİK BURADA\n  const top3Queries = sortedQueries.slice(0, 3);\n  \n  // Return only top 3 queries\n  return [\n    {\n      json: {\n        topic: inputData.search_parameters?.q || 'Unknown',\n        top_10_queries: top3Queries  // İsim aynı kaldı ama sadece 3 item\n      }\n    }\n  ];\n  \n} catch (error) {\n  return [\n    {\n      json: {\n        error: 'Failed to extract and structure related queries data',\n        error_message: error.message,\n        topic: inputData.search_parameters?.q || 'Unknown'\n      }\n    }\n  ];\n}"
+      },
+      "id": "04cf324e-05f6-40e3-b04c-446b6f74ce6f",
+      "name": "Classing query",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2400,
+        720
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.topic }} için alınan top 3 trend verilerini analiz et ve JSON formatında döndür:\n\nVeriler:\n1. {{ $json.top_10_queries[0].query }} - Artış: {{ $json.top_10_queries[0].extracted_value }}\n2. {{ $json.top_10_queries[1].query }} - Artış: {{ $json.top_10_queries[1].extracted_value }}  \n3. {{ $json.top_10_queries[2].query }} - Artış: {{ $json.top_10_queries[2].extracted_value }}\n\nBu 3 trendi aynı formatta JSON olarak döndür:\n{\n  \"query1\": [\"{{ $json.top_10_queries[0].query }}\", \"{{ $json.top_10_queries[1].query }}\", \"{{ $json.top_10_queries[2].query }}\"],\n  \"query2\": [\"{{ $json.rising_queries?.[0]?.query || '' }}\", \"{{ $json.rising_queries?.[1]?.query || '' }}\", \"{{ $json.rising_queries?.[2]?.query || '' }}\"],\n  \"query3\": [\"{{ $json.top_10_queries[0].extracted_value }}\", \"{{ $json.top_10_queries[1].extracted_value }}\", \"{{ $json.top_10_queries[2].extracted_value }}\"]\n}\n\nSADECE bu JSON formatını döndür, başka açıklama ekleme.",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "id": "cbf28386-5df2-4471-8035-09bd1910e6ae",
+      "name": "Sorting queries",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [
+        2640,
+        688
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "jsCode": "// Giriş verilerini al\nconst inputData = $input.all()[0].json.output;\n\nconsole.log(\"Input data:\", JSON.stringify(inputData, null, 2));\n\n// Çıkış tablosunu başlat\nlet restructuredData = [];\n\n// query1'den sorgular, query3'ten artış değerleri\n// Her index için (0,1,2) ayrı bir satır oluştur\nfor (let i = 0; i < 3; i++) {\n  if (inputData.query1[i] && inputData.query3[i]) {\n    restructuredData.push({\n      Sorgu: inputData.query1[i],     // query1'den sorgu adı\n      Artis: inputData.query3[i],     // query3'ten artış değeri\n      Haberler: \"\",                   // Şimdilik boş kolon\n      Fikir: \"\"                       // Şimdilik boş kolon\n    });\n  }\n}\n\nconsole.log(\"Restructured data:\", restructuredData);\n\n// Yeniden yapılandırılmış tabloyu döndür\nreturn restructuredData.map(item => ({ json: item }));"
+      },
+      "id": "177122d1-ec44-4a51-9399-689cba21d886",
+      "name": "Sorting output > table",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        3008,
+        688
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1bXOr0YSiKnWisG2d_t77kyF_Px9Oovwf6t7rwui6BJI/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ new Date().toLocaleDateString('tr-TR', { month: 'long' }).charAt(0).toUpperCase() + new Date().toLocaleDateString('tr-TR', { month: 'long' }).slice(1) }} {{ $('Get Query').first().json.Query }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Sorgu",
+              "displayName": "Sorgu",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Artış",
+              "displayName": "Artış",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Haberler",
+              "displayName": "Haberler",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Fikir",
+              "displayName": "Fikir",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "output",
+              "displayName": "output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "9a56a247-a49b-43b4-95da-b706fd962e3e",
+      "name": "Add datas",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        3248,
+        864
+      ],
+      "typeVersion": 4.6,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2b6GZ4GgadWJc6K9",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "245bf100-21a3-4de2-9b92-74e09e3347a7",
+              "name": "Query",
+              "type": "string",
+              "value": "={{ $json.Sorgu }}"
+            },
+            {
+              "id": "4edb9878-8c74-4f76-bec6-84312465a938",
+              "name": "original query",
+              "value": "={{ $('Get Query').first().json.Query }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "include": "selected",
+        "options": {}
+      },
+      "id": "b3feaaad-782a-49b7-933b-62d134b57aa0",
+      "name": "Filter queries",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        3552,
+        688
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Bu haber başlıklarından 3 ana TREND BAŞLIĞI belirle ve her trend için 3 pazarlama fikri ver:\n\n{{ $json.baslik }}\n\nFormat:\nTREND1: [Ana trend başlığı 1]\nİçerik Fikirleri: 1. [fikir] 2. [fikir] 3. [fikir]\n\nTREND2: [Ana trend başlığı 2] \nİçerik Fikirleri: 1. [fikir] 2. [fikir] 3. [fikir]\n\nTREND3: [Ana trend başlığı 3]\nİçerik Fikirleri: 1. [fikir] 2. [fikir] 3. [fikir]\n\nHer trend başlığı farklı konu olsun (ekonomi, spor, teknoloji vb). Türkçe yaz.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Sen 2025 yılında çalışan deneyimli bir Türk dijital pazarlama uzmanısın. E-commerce, sosyal medya pazarlaması, influencer marketing ve trend analizi konularında uzmansın. Türkiye pazarını çok iyi tanıyorsun ve güncel dijital pazarlama trendlerini takip ediyorsun. Her zaman Türkçe yanıt veriyorsun ve pratik, uygulanabilir fikirler üretiyorsun."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "6bb363a6-ab17-4155-b3a6-6ebb25a66676",
+      "name": "Article analysis",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [
+        4528,
+        992
+      ],
+      "typeVersion": 1.7
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1bXOr0YSiKnWisG2d_t77kyF_Px9Oovwf6t7rwui6BJI/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ new Date().toLocaleDateString('tr-TR', { month: 'long' }).charAt(0).toUpperCase() + new Date().toLocaleDateString('tr-TR', { month: 'long' }).slice(1) }} {{ $('Get Query').first().json.Query }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Haberler": "={{ $json.url }}",
+            "Fikir": "={{ $json.analiz}}",
+            "Sorgu": "={{ $node[\"Loop Over Items\"].json.Query }}"
+          },
+          "matchingColumns": [
+            "Sorgu"
+          ],
+          "schema": [
+            {
+              "id": "Sorgu",
+              "displayName": "Sorgu",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Artis",
+              "displayName": "Artis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Haberler",
+              "displayName": "Haberler",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Fikir",
+              "displayName": "Fikir",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "c047486d-9f6a-400e-a2f6-9fa2e8938491",
+      "name": "Add article datas",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        5072,
+        1200
+      ],
+      "typeVersion": 4.6,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2b6GZ4GgadWJc6K9",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google_news"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.Query }}"
+            },
+            {
+              "name": "gl",
+              "value": "tr"
+            },
+            {
+              "name": "hl",
+              "value": "tr"
+            },
+            {
+              "name": "num",
+              "value": "10"
+            },
+            {
+              "name": "api_key",
+              "value": "79c8f2ad696cc432574fd6bc55c7ad2d2353f303416dddc77c5a909e325e4120"
+            },
+            {
+              "name": "when",
+              "value": "1m"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4016,
+        704
+      ],
+      "id": "4bc71016-05e2-4e49-a1ce-3c5b9e8b1d1a",
+      "name": "HTTP Request1",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "api_key",
+              "value": "79c8f2ad696cc432574fd6bc55c7ad2d2353f303416dddc77c5a909e325e4120"
+            },
+            {
+              "name": "engine",
+              "value": "google_trends"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.Query }}"
+            },
+            {
+              "name": "hl",
+              "value": "tr"
+            },
+            {
+              "name": "geo",
+              "value": "TR"
+            },
+            {
+              "name": "data_type",
+              "value": "RELATED_QUERIES"
+            },
+            {
+              "name": "tz",
+              "value": "180"
+            },
+            {
+              "name": "date",
+              "value": "today 1-m"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2064,
+        720
+      ],
+      "id": "d3923104-07f5-4ae8-8611-a5288747edaa",
+      "name": "HTTP Request",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sorgu bilgisini al\nlet sorguBilgisi = \"bilinmeyen\";\ntry {\n  const allNodes = $input.all();\n  \n  // Get Query node'undan sorgu al\n  sorguBilgisi = $node[\"Get Query\"].json.query || $node[\"Get Query\"].json.sorgu || \"bilinmeyen\";\n} catch (e) {\n  console.log(\"Get Query node'una erişilemedi:\", e.message);\n  \n  // Alternatif: input'tan sorgu bul\n  const allNodes = $input.all();\n  for (let node of allNodes) {\n    if (node.json.query) {\n      sorguBilgisi = node.json.query;\n      break;\n    }\n    if (node.json.sorgu) {\n      sorguBilgisi = node.json.sorgu;\n      break;\n    }\n  }\n}\n\n// Debug için log ekle\nconsole.log(\"Bulunan sorgu:\", sorguBilgisi);\n\n// Article analysis'ten gelen metni al\nconst anthropicAnalysis = $json.text || $json.content || $json.response || \"\";\n\n// Code1'den gelen haber verilerini al\nlet newsItems = [];\ntry {\n  const code1Data = $node[\"Code1\"];\n  console.log(\"Code1 verisi:\", JSON.stringify(code1Data, null, 2));\n  \n  if (Array.isArray(code1Data)) {\n    newsItems = code1Data;\n  } else if (code1Data && code1Data.json) {\n    newsItems = [code1Data];\n  }\n} catch (e) {\n  console.log(\"Code1'den veri alınamadı:\", e.message);\n  newsItems = $input.all();\n}\n\n// Her haber için ayrı obje oluştur\nconst processedItems = newsItems.map((item, index) => ({\n  json: {\n    sorgu: sorguBilgisi,\n    baslik: item.json?.baslik || item.json?.title || `Haber ${index + 1}`,\n    url: item.json?.url || \"\",\n    tarih: new Date().toLocaleDateString('tr-TR'),\n    durum: \"yeni\",\n    analiz: anthropicAnalysis.substring(0, 1500)\n  }\n}));\n\nconsole.log(\"İşlenmiş veriler:\", JSON.stringify(processedItems.slice(0, 2), null, 2));\n\nreturn processedItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4880,
+        992
+      ],
+      "id": "1300a414-0b39-4265-a59a-0188b7c183ea",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop Over Items'tan gelen sorgu bilgisini al\nlet sorguBilgisi = \"bilinmeyen\";\n\ntry {\n  // Current iteration'dan sorgu al\n  const currentItem = $input.all().find(item => item.json && item.json.Query);\n  \n  if (currentItem && currentItem.json.Query) {\n    sorguBilgisi = currentItem.json.Query;\n  }\n  \n  console.log(\"Loop'tan alınan sorgu:\", sorguBilgisi);\n  console.log(\"Mevcut iteration data:\", JSON.stringify($input.all()[0]?.json, null, 2));\n  \n} catch (e) {\n  console.log(\"Sorgu alma hatası:\", e.message);\n}\n\n// Her haber için ayrı obje oluştur\nconst processedItems = items.map((item, index) => ({\n  json: {\n    sorgu: sorguBilgisi,\n    baslik: item.json.title || `Haber ${index + 1}`,\n    url: item.json.url || \"\",\n    tarih: new Date().toLocaleDateString('tr-TR'),\n    durum: \"yeni\"\n  }\n}));\n\nreturn processedItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4272,
+        960
+      ],
+      "id": "b2266b99-b374-4c9c-8c45-917b3e47ff42",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        3792,
+        880
+      ],
+      "id": "0e30eb22-1c46-4976-b268-9210fb2968a5",
+      "name": "Loop Over Items",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "soda-trend",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1456,
+        736
+      ],
+      "id": "2748ed16-fa05-4900-be32-967c22343ac0",
+      "name": "Webhook",
+      "webhookId": "69f5c04b-659f-4882-bb76-2e7f3517e508"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1bXOr0YSiKnWisG2d_t77kyF_Px9Oovwf6t7rwui6BJI/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Query",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": 2,
+            "Query": "={{$json.query}}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "Query",
+              "displayName": "Query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1728,
+        736
+      ],
+      "id": "48b6c2c6-c1e6-491e-b426-0f06c6305831",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2b6GZ4GgadWJc6K9",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true,\n  \"query\": \"={{ $('Webhook').first().json.query || $json.query }}\",\n  \"message\": \"SODA trend webhook OK\"\n}\n",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        5312,
+        1168
+      ],
+      "id": "e7244a75-52a6-4970-86b0-790fd3a3e6c0",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const w = $('Webhook').first().json;\nconst q = String(w.body?.query ?? w.query ?? '').trim();\nif (!q) throw new Error('query yok');\nreturn [{ json: { query: q } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        928
+      ],
+      "id": "70088bb1-1b21-40e9-8bd4-c3874ebe00d0",
+      "name": "Code2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Add datas": {
+      "main": [
+        [
+          {
+            "node": "Filter queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Query": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classing query": {
+      "main": [
+        [
+          {
+            "node": "Sorting queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter queries": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sorting queries": {
+      "main": [
+        [
+          {
+            "node": "Sorting output > table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Article analysis": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add article datas": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Sorting queries",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Article analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sorting output > table": {
+      "main": [
+        [
+          {
+            "node": "Création feuille sheets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Add datas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Sorting queries",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Return URL only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Classing query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Création feuille sheets": {
+      "main": [
+        []
+      ]
+    },
+    "Return URL only": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Add article datas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Article analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Get Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f262efaf-192d-4355-bee4-a72cc69e96c1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef1dc0d0b8700248f6042b57c77ac49c61b99264378345faece8d7810e91b2ff"
+  },
+  "id": "hZWCsw7cXGSzqA5p",
+  "tags": [
+    {
+      "createdAt": "2025-09-08T20:40:05.838Z",
+      "updatedAt": "2025-09-08T20:40:05.838Z",
+      "id": "iik6tU7CVXzVkSMD",
+      "name": "OTOMASYONLAR SODA"
+    }
+  ]
+}
